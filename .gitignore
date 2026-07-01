@@ -1,8 +1,23 @@
+# Environment & secrets
 .env
+
+# Database
 *.db
 *.db-journal
 instance/
+
+# Python bytecode
 __pycache__/
 *.pyc
+
+# Virtual environments
 .venv/
 venv/
+
+# Test cache
+.pytest_cache/
+
+# IDE tooling (not project code)
+.claude/
+.vscode/
+.idea/
