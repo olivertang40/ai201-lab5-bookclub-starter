@@ -205,3 +205,80 @@ class TestGetReadingHistory:
             db.session.commit()
 
             assert reading_service.get_reading_history(user.id) == []
+
+
+# ---------------------------------------------------------------------------
+# books_this_month() — UTC consistency
+# ---------------------------------------------------------------------------
+
+class TestBooksThisMonth:
+
+    def test_counts_books_finished_in_current_utc_month(self, app):
+        """Only books whose finished_at falls in the current UTC month are counted."""
+        with app.app_context():
+            now_utc = datetime.now(timezone.utc)
+            user = make_user("monthuser", "month@test.com")
+            b_this_month = make_book(user.id, "This Month")
+            b_last_month = make_book(user.id, "Last Month")
+
+            # finished today (this month in UTC)
+            make_finished_event(user.id, b_this_month.id, now_utc - timedelta(hours=1))
+            # finished 35 days ago (definitely last month in UTC)
+            make_finished_event(user.id, b_last_month.id, now_utc - timedelta(days=35))
+            db.session.commit()
+
+            assert stats_service.books_this_month(user.id) == 1
+
+    def test_zero_when_no_books_this_month(self, app):
+        """Returns 0 when all finished books are from previous months."""
+        with app.app_context():
+            now_utc = datetime.now(timezone.utc)
+            user = make_user("oldmonth", "old@test.com")
+            b = make_book(user.id, "Old Book")
+            make_finished_event(user.id, b.id, now_utc - timedelta(days=40))
+            db.session.commit()
+
+            assert stats_service.books_this_month(user.id) == 0
+
+
+# ---------------------------------------------------------------------------
+# add_book() — pages validation
+# ---------------------------------------------------------------------------
+
+class TestAddBook:
+
+    def test_zero_pages_raises_value_error(self, app):
+        """Adding a book with pages=0 must raise ValueError."""
+        with app.app_context():
+            user = make_user("pageuser", "page@test.com")
+            db.session.commit()
+
+            with pytest.raises(ValueError, match="pages must be a positive integer"):
+                reading_service.add_book(
+                    title="Empty Book", author="Author", pages=0,
+                    genre="test", user_id=user.id
+                )
+
+    def test_negative_pages_raises_value_error(self, app):
+        """Adding a book with negative pages must raise ValueError."""
+        with app.app_context():
+            user = make_user("negpage", "neg@test.com")
+            db.session.commit()
+
+            with pytest.raises(ValueError, match="pages must be a positive integer"):
+                reading_service.add_book(
+                    title="Negative Book", author="Author", pages=-5,
+                    genre="test", user_id=user.id
+                )
+
+    def test_valid_pages_creates_book(self, app):
+        """Adding a book with valid pages succeeds."""
+        with app.app_context():
+            user = make_user("validpage", "valid@test.com")
+            db.session.commit()
+
+            book = reading_service.add_book(
+                title="Real Book", author="Author", pages=300,
+                genre="fiction", user_id=user.id
+            )
+            assert book.pages == 300
