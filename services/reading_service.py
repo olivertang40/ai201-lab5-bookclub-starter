@@ -29,6 +29,9 @@ def add_book(title: str, author: str, pages: int, genre: str, user_id: str) -> B
     Returns:
         The newly created Book.
     """
+    if pages <= 0:
+        raise ValueError(f"pages must be a positive integer, got {pages}")
+
     user = db.session.get(User, user_id)
     if not user:
         raise ValueError(f"User {user_id} not found")
