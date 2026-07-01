@@ -5,7 +5,7 @@ Computes reading statistics for a user: streak, books finished this month,
 and total pages read.
 """
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from services import reading_service
 
 
@@ -36,7 +36,8 @@ def calculate_streak(user_id: str) -> int:
         reverse=True,
     )
 
-    today = date.today()
+    # Use UTC date so it matches the UTC timestamps stored in finished_at.
+    today = datetime.now(timezone.utc).date()
 
     # Streak must start from today or yesterday — otherwise it has already broken.
     if (today - dates[0]).days > 1:
@@ -64,11 +65,12 @@ def books_this_month(user_id: str) -> int:
         Count of books finished this month.
     """
     events = reading_service.get_reading_history(user_id)
-    today = date.today()
+    # Use UTC so the month comparison matches the UTC timestamps in finished_at.
+    now_utc = datetime.now(timezone.utc)
     return sum(
         1
         for e in events
-        if e.finished_at.year == today.year and e.finished_at.month == today.month
+        if e.finished_at.year == now_utc.year and e.finished_at.month == now_utc.month
     )
 
 
